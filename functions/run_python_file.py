@@ -1,7 +1,6 @@
 import os
 import subprocess
 
-from pydantic_core.core_schema import arguments_parameter
 def run_python_file(working_directory, file_path, args=[]):
 
     full_path = os.path.join(working_directory, file_path)
@@ -18,9 +17,20 @@ def run_python_file(working_directory, file_path, args=[]):
 
 
     try:
-        arguments = [abs_full_path] + args
-        completed_process = subprocess.run(arguments, timeout=30, capture_output=True) 
-        print(completed_process)
+        arguments = ['python', abs_full_path] + args
+        completed_process = subprocess.run(arguments, timeout=30, capture_output=True, cwd=abs_working_dir, text=True) 
 
+        if not completed_process.stdout and not completed_process.stderr:
+            return "No output produced."
+
+        result = ''
+        if completed_process.stdout:
+            result += f'\nSTDOUT: {completed_process.stdout}'
+        if completed_process.stderr:
+            result += f'\nSTDERR: {completed_process.stderr}'
+        if completed_process.returncode != 0:
+            result += f'\nProcess exited with code {completed_process.returncode}'
+
+        return result
     except Exception as e:
         return f"Error: executing Python file: {e}"
