@@ -8,6 +8,7 @@ from functions.get_file_content import schema_get_file_content
 from functions.write_file import schema_write_file
 from functions.run_python_file import schema_run_python_file
 from functions.call_function import call_function
+from functions.config import MAX_ITERATIONS
 
 
 
@@ -46,33 +47,49 @@ def main():
         ]
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-001",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions],
-            system_instruction=system_prompt
-        )
-    )
-    # if response.candidates:
-    #     for candidate in response.candidates:
-    #         messages.append(candidate.content)
+    iterations = 0
 
-    print(response.text)
-    if response.function_calls:
-        for function_call_part in response.function_calls:
-            print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-            function_call_result = call_function(function_call_part,verbose)
-            if not function_call_result.parts[0].function_response.response:
-                raise Exception('no function call response')
-            if verbose:
-                print(f"-> {function_call_result.parts[0].function_response.response}")
+    while iterations < MAX_ITERATIONS:
+        iterations += 1
 
-    if verbose:
-        print(f"User prompt: {user_prompt}")
-        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}") 
-        print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash-001",
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    tools=[available_functions],
+                    system_instruction=system_prompt
+                )
+            )
+        except Exception as e:
+            print(f"Error during generate_content: {e}")
 
+        if response.candidates:
+            for candidate in response.candidates:
+                messages.append(candidate.content)
+
+        if response.text and not response.function_calls:
+            print(response.text)
+            break
+        if response.function_calls:
+            for function_call_part in response.function_calls:
+
+                function_call_result = call_function(function_call_part,verbose)
+
+                if not function_call_result.parts[0].function_response.response:
+                    raise Exception('no function call response')
+                if verbose:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
+
+                function_message = types.Content(role='user', parts=function_call_result.parts)
+                messages.append(function_message)
+
+        if verbose:
+            print(f"User prompt: {user_prompt}")
+            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}") 
+            print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    else:
+        print('Reached Max Iterations')
 
 if __name__ == "__main__":
     main()
