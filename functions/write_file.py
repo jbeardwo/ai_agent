@@ -24,7 +24,7 @@ def write_file(working_directory, file_path, content):
 
 schema_write_file = types.FunctionDeclaration(
     name="write_file",
-    description="Writes content to a file. Creates the file if it doesn't already exist. Constrained to the working directory.",
+    description="Writes content to a file. Creates the file if it doesn't already exist. Will create all subdirectories. Constrained to the working directory.",
     parameters=types.Schema(
         type=types.Type.OBJECT,
         properties={
